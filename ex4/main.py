@@ -13,8 +13,14 @@ img = io.imread("./img/lung.png")
 img_gray = img_as_ubyte(color.rgb2grey(img))
 
 
-def lung_segmentation():
-    pass
+def lung_segmentation(img_gray_in_method):
+    rough_segmentation_img = otsu_thresholding(img_gray_in_method)
+    lung_masks = remove_noise_regions(rough_segmentation_img)
+
+    closing = morphology.binary_closing(lung_masks, morphology.square(14))
+    io.imshow(closing)
+    plt.title("closing")
+    plt.show()
 
 
 def bi_model_thresholding(img_in_method):
@@ -98,17 +104,5 @@ def remove_noise_regions(rough_segmentation_img_in_method):
     plt.show()
     return masks
 
-
-rough_segmentation_img = otsu_thresholding(img_gray.copy())
-lung_masks = remove_noise_regions(rough_segmentation_img)
-
-closing = morphology.binary_closing(lung_masks, morphology.square(14))
-opening = morphology.binary_opening(closing, morphology.square(14))
-
-plt.subplot(121)
-io.imshow(closing)
-plt.title("closing")
-plt.subplot(122)
-io.imshow(opening)
-plt.title("opening")
-plt.show()
+if __name__ == "__main__":
+    lung_segmentation(img_gray.copy())
