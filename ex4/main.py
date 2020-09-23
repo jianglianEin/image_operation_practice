@@ -77,20 +77,20 @@ def remove_noise_regions(rough_segmentation_img_in_method):
 
     x, y = label_img.shape
     for i in range(x):
-        if label_img[i][0] - 1 in keep_label_list:
-            keep_label_list.remove(label_img[i][0] - 1)
-        if label_img[i][x - 1] - 1 in keep_label_list:
-            keep_label_list.remove(label_img[i][x - 1] - 1)
+        if label_img[i][0] in keep_label_list:
+            keep_label_list.remove(label_img[i][0])
+        if label_img[i][x - 1] in keep_label_list:
+            keep_label_list.remove(label_img[i][x - 1])
     for i in range(y):
-        if label_img[0][i] - 1 in keep_label_list:
-            keep_label_list.remove(label_img[0][i] - 1)
-        if label_img[0][y - 1] - 1 in keep_label_list:
-            keep_label_list.remove(label_img[0][y - 1] - 1)
+        if label_img[0][i] in keep_label_list:
+            keep_label_list.remove(label_img[0][i])
+        if label_img[0][y - 1] in keep_label_list:
+            keep_label_list.remove(label_img[0][y - 1])
 
     masks = np.zeros(shape=label_img.shape)
 
     for keep_label in keep_label_list:
-        mask = label_img == keep_label + 1
+        mask = label_img == keep_label
         masks += mask
 
     io.imshow(masks)
@@ -102,8 +102,8 @@ def remove_noise_regions(rough_segmentation_img_in_method):
 rough_segmentation_img = otsu_thresholding(img_gray.copy())
 lung_masks = remove_noise_regions(rough_segmentation_img)
 
-closing = morphology.binary_closing(lung_masks, morphology.square(15))
-opening = morphology.binary_opening(closing, morphology.square(15))
+closing = morphology.binary_closing(lung_masks, morphology.square(14))
+opening = morphology.binary_opening(closing, morphology.square(14))
 
 plt.subplot(121)
 io.imshow(closing)
