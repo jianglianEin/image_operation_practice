@@ -1,20 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pip._vendor.msgpack.fallback import xrange
+from scipy.signal import correlate2d
 from skimage import io, color, img_as_ubyte
 from skimage.measure import label
 from skimage.color import label2rgb
+from skimage.segmentation import slic
 import time
 from skimage import morphology
+from sklearn.cluster import KMeans
+import PIL.Image as image
 
 start_time = time.time()
 
-img = io.imread("./img/lung.png")
-img_gray = img_as_ubyte(color.rgb2grey(img))
+img_lung = io.imread("./img/lung.png")
+img_lung_gray = img_as_ubyte(color.rgb2grey(img_lung))
+
+img_cat = io.imread("./img/cat.jpg")
+img_cat_gray = img_as_ubyte(color.rgb2grey(img_cat))
 
 
 def lung_segmentation(img_gray_in_method):
-    rough_segmentation_img = otsu_thresholding(img_gray_in_method)
+    rough_segmentation_img = bi_model_thresholding(img_gray_in_method)
     lung_masks = remove_noise_regions(rough_segmentation_img)
 
     closing = morphology.binary_closing(lung_masks, morphology.square(14))
@@ -104,5 +111,94 @@ def remove_noise_regions(rough_segmentation_img_in_method):
     plt.show()
     return masks
 
+
+def loadData(filePath):
+    f = open(filePath, 'rb')  # deal with binary
+    data = []
+    img = image.open(f)  # return to pixel(像素值)
+    m, n = img.size  # the size of image
+    for i in range(m):
+        for j in range(n):
+            x, y, z = img.getpixel((i, j))
+            # deal with pixel to the range 0-1 and save to data
+            data.append([x / 256.0, y / 256.0, z / 256.0])
+    f.close()
+    return np.mat(data), m, n
+
+
+def create_data_mat_by_rgb(img_in_method):
+    row_in_method, col_in_method, channel = img_in_method.shape
+    data = []
+    for i in range(row_in_method):
+        for j in range(col_in_method):
+            x, y, z = img_in_method[i, j, :]
+            data.append([x, y, z])
+    return np.mat(data), row_in_method, col_in_method
+
+
+def create_data_mat_by_rgb_and_coordinates(img_in_method):
+    row_in_method, col_in_method, channel = img_in_method.shape
+    data = []
+    for i in range(row_in_method):
+        for j in range(col_in_method):
+            x, y, z = img_in_method[i, j, :]
+            data.append([x, y, z, i, j])
+    return np.mat(data), row_in_method, col_in_method
+
+
+def laplace_edge(img_in_method):
+    laplace_filter = np.array([
+        [1, 1, 1],
+        [1, -8, 1],
+        [1, 1, 1],
+    ])
+
+    img_in_method = np.pad(img_in_method, (1, 1), mode='constant', constant_values=0)
+    m, n = img_in_method.shape
+    output_image = correlate2d(img_in_method, laplace_filter, mode='same', boundary='fill')
+    output_image = output_image[1:m - 1, 1:n - 1]
+    return output_image
+
+
+def over_segmentation_by_k_mean(img_in_method):
+    data_mat, row, col = create_data_mat_by_rgb_and_coordinates(img_in_method)
+    k_res = KMeans(n_clusters=100).fit(data_mat)
+    mask = k_res.labels_.reshape([row, col])
+
+    mask_boundary_in_method = laplace_edge(mask)
+
+    for i in range(row):
+        for j in range(col):
+            if mask_boundary_in_method[i][j] != 0:
+                img_in_method[i, j, 0] = 255
+                img_in_method[i, j, 1] = 0
+                img_in_method[i, j, 2] = 0
+    io.imshow(img_in_method)
+    plt.title("k_mean")
+    plt.show()
+
+
+def over_segmentation_by_slic(img_in_method):
+    row, col, _ = img_in_method.shape
+    segments = slic(img_in_method, n_segments=100)
+    mask_boundary = laplace_edge(segments)
+
+    for i in range(row):
+        for j in range(col):
+            if mask_boundary[i][j] != 0:
+                img_in_method[i, j, 0] = 255
+                img_in_method[i, j, 1] = 0
+                img_in_method[i, j, 2] = 0
+    io.imshow(img_in_method)
+    plt.title("slic")
+    plt.show()
+
+
+def cat_segmentation(img_in_method):
+    over_segmentation_by_k_mean(img_in_method.copy())
+    over_segmentation_by_slic(img_in_method.copy())
+
+
 if __name__ == "__main__":
-    lung_segmentation(img_gray.copy())
+    lung_segmentation(img_lung_gray.copy())
+    cat_segmentation(img_cat.copy())
