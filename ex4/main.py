@@ -20,11 +20,37 @@ img_cat = io.imread("./img/cat.jpg")
 img_cat_gray = img_as_ubyte(color.rgb2grey(img_cat))
 
 
+def remove_black_holes_in_lung(lung_mask_reversal):
+    label_img = label(lung_mask_reversal)
+    # image_label_overlay = label2rgb(label_img, rough_segmentation_img_in_method)
+    label_count, _ = np.histogram(label_img.ravel(), label_img.max(), [0, label_img.max()])
+
+    max_label = max(label_count)
+
+    keep_label_list = list()
+
+    for label_index in range(label_count.size):
+        if label_count[label_index] < max_label:
+            keep_label_list.append(label_index)
+
+    masks = np.zeros(shape=label_img.shape)
+
+    for keep_label in keep_label_list:
+        mask = label_img == keep_label
+        masks += mask
+
+    io.imshow(masks)
+    plt.title("lung_masks_remove_black_holes")
+    plt.show()
+    return masks
+
+
 def lung_segmentation(img_gray_in_method):
     rough_segmentation_img = bi_model_thresholding(img_gray_in_method)
     lung_masks = remove_noise_regions(rough_segmentation_img)
+    lung_masks_remove_black_holes = remove_black_holes_in_lung(lung_masks == 0)
 
-    closing = morphology.binary_closing(lung_masks, morphology.square(14))
+    closing = morphology.binary_closing(lung_masks_remove_black_holes, morphology.square(3))
     io.imshow(closing)
     plt.title("closing")
     plt.show()
