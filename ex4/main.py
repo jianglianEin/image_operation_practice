@@ -4,12 +4,11 @@ from pip._vendor.msgpack.fallback import xrange
 from scipy.signal import correlate2d
 from skimage import io, color, img_as_ubyte
 from skimage.measure import label
-from skimage.color import label2rgb
+from skimage.color import label2rgb, rgb2hsv
 from skimage.segmentation import slic
 import time
 from skimage import morphology
 from sklearn.cluster import KMeans
-import PIL.Image as image
 
 start_time = time.time()
 
@@ -138,20 +137,6 @@ def remove_noise_regions(rough_segmentation_img_in_method):
     return masks
 
 
-def loadData(filePath):
-    f = open(filePath, 'rb')  # deal with binary
-    data = []
-    img = image.open(f)  # return to pixel(像素值)
-    m, n = img.size  # the size of image
-    for i in range(m):
-        for j in range(n):
-            x, y, z = img.getpixel((i, j))
-            # deal with pixel to the range 0-1 and save to data
-            data.append([x / 256.0, y / 256.0, z / 256.0])
-    f.close()
-    return np.mat(data), m, n
-
-
 def create_data_mat_by_rgb(img_in_method):
     row_in_method, col_in_method, channel = img_in_method.shape
     data = []
@@ -172,6 +157,17 @@ def create_data_mat_by_rgb_and_coordinates(img_in_method):
     return np.mat(data), row_in_method, col_in_method
 
 
+def create_data_mat_by_hsv_and_coordinates(img_in_method):
+    img_hsv = rgb2hsv(img_in_method)
+    row_in_method, col_in_method, channel = img_hsv.shape
+    data = []
+    for i in range(row_in_method):
+        for j in range(col_in_method):
+            x, y, z = img_hsv[i, j, :]
+            data.append([x * 360, y, z, i, j])
+    return np.mat(data), row_in_method, col_in_method
+
+
 def laplace_edge(img_in_method):
     laplace_filter = np.array([
         [1, 1, 1],
@@ -187,7 +183,7 @@ def laplace_edge(img_in_method):
 
 
 def over_segmentation_by_k_mean(img_in_method):
-    data_mat, row, col = create_data_mat_by_rgb_and_coordinates(img_in_method)
+    data_mat, row, col = create_data_mat_by_hsv_and_coordinates(img_in_method)
     k_res = KMeans(n_clusters=100).fit(data_mat)
     mask = k_res.labels_.reshape([row, col])
 
